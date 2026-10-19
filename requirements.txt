@@ -1,0 +1,6 @@
+streamlit
+pandas
+requests
+playwright==1.49.0
+python-dotenv
+psycopg[binary]>=3.2,<4
