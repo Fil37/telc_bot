@@ -12,7 +12,7 @@ from streamlit.errors import StreamlitSecretNotFoundError
 from playwright.async_api import Error as PlaywrightError
 
 from database import connect_db, init_db, using_supabase
-from monitor import surveiller_une_fois
+from monitor import envoyer_notification_telegram, surveiller_une_fois
 
 st.set_page_config(
     page_title="KBW B2 Monitor",
@@ -96,8 +96,14 @@ except (psycopg.Error, sqlite3.Error) as erreur:
     st.stop()
 
 with st.container():
-    col_sessions, col_disponibles, col_alertes, col_action = st.columns(
-        [1, 1, 1, 1.5]
+    (
+        col_sessions,
+        col_disponibles,
+        col_alertes,
+        col_action,
+        col_test,
+    ) = st.columns(
+        [1, 1, 1, 1.5, 1.5]
     )
     disponibles = (
         int((df_sessions["disponibilite"] == "disponible").sum())
@@ -111,6 +117,11 @@ with st.container():
         "Vérifier maintenant",
         width="stretch",
         type="primary",
+    )
+    tester_telegram = col_test.button(
+        "Tester Telegram",
+        width="stretch",
+        help="Envoie un exemple marqué TEST, sans modifier la base.",
     )
 
 if not (telegram_token and telegram_chat_id):
@@ -158,6 +169,34 @@ if verifier:
         df_sessions, df_alertes = charger_donnees()
     except (psycopg.Error, sqlite3.Error) as erreur:
         st.error(f"Impossible de recharger la base de données : {erreur}")
+
+if tester_telegram:
+    if not telegram_token or not telegram_chat_id:
+        st.error(
+            "Test impossible : configure TELEGRAM_BOT_TOKEN et "
+            "TELEGRAM_CHAT_ID dans les secrets."
+        )
+    else:
+        try:
+            envoyer_notification_telegram(
+                {
+                    "categorie": "douala_b2",
+                    "date_examen": "20/10/2026",
+                    "heure": "09:00",
+                    "ancienne_disponibilite": "indisponible",
+                    "nouvelle_disponibilite": "disponible",
+                },
+                telegram_token,
+                telegram_chat_id,
+                test=True,
+            )
+        except (requests.RequestException, ValueError, RuntimeError) as erreur:
+            st.error(
+                f"Échec de l’envoi du test Telegram "
+                f"({type(erreur).__name__})."
+            )
+        else:
+            st.success("Message de test envoyé dans le chat Telegram.")
 
 st.divider()
 st.subheader("🚨 Alertes")

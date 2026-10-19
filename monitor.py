@@ -58,6 +58,7 @@ def envoyer_notification_telegram(
     alerte: dict[str, str],
     token: str,
     chat_id: str,
+    test: bool = False,
 ) -> None:
     if not token or not chat_id:
         raise ValueError("TELEGRAM_BOT_TOKEN et TELEGRAM_CHAT_ID sont requis.")
@@ -72,8 +73,13 @@ def envoyer_notification_telegram(
         f"{BASE_URL}/demo"
         f"#/courses?fcourses={filtre_categorie}"
     )
+    titre = (
+        "🧪 TEST — alerte de disponibilité"
+        if test
+        else "🚨 Place possiblement libérée"
+    )
     message = (
-        "🚨 Place possiblement libérée\n\n"
+        f"{titre}\n\n"
         f"Catégorie : {html.escape(categorie)}\n"
         f"Date : {html.escape(alerte['date_examen'])}\n"
         f"Heure : {html.escape(alerte['heure'])}\n"
