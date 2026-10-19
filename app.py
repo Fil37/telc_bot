@@ -190,6 +190,16 @@ if tester_telegram:
                 telegram_chat_id,
                 test=True,
             )
+        except requests.HTTPError as erreur:
+            code_http = (
+                erreur.response.status_code
+                if erreur.response is not None
+                else "inconnu"
+            )
+            st.error(
+                f"Telegram a refusé le test (HTTP {code_http}). "
+                "Vérifie le token du bot et le chat_id."
+            )
         except (requests.RequestException, ValueError, RuntimeError) as erreur:
             st.error(
                 f"Échec de l’envoi du test Telegram "
