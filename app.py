@@ -2,6 +2,7 @@ import asyncio
 import os
 import sqlite3
 import subprocess
+from datetime import date
 from pathlib import Path
 
 import pandas as pd
@@ -25,7 +26,7 @@ st.caption("Surveillance des places d’examen et de rattrapage.")
 
 
 @st.cache_data(ttl=30)
-def charger_donnees() -> tuple[pd.DataFrame, pd.DataFrame]:
+def charger_donnees(date_minimale: str) -> tuple[pd.DataFrame, pd.DataFrame]:
     if not using_supabase() and not Path(
         os.environ.get(
             "KBW_B2_MONITOR_DB",
@@ -40,8 +41,10 @@ def charger_donnees() -> tuple[pd.DataFrame, pd.DataFrame]:
             SELECT source, categorie, session_id, date_examen, heure,
                    disponibilite, quantityleft, observe_a
             FROM sessions
+            WHERE date_examen >= ?
             ORDER BY date_examen, heure, categorie
-            """
+            """,
+            (date_minimale,),
         )
         alertes_cursor = conn.execute(
             """
@@ -90,7 +93,7 @@ if supabase_db_url:
 try:
     if using_supabase():
         init_db()
-    df_sessions, df_alertes = charger_donnees()
+    df_sessions, df_alertes = charger_donnees(date.today().isoformat())
 except (psycopg.Error, sqlite3.Error) as erreur:
     st.error(f"Impossible d’accéder à la base de données : {erreur}")
     st.stop()
@@ -110,7 +113,7 @@ with st.container():
         if not df_sessions.empty
         else 0
     )
-    col_sessions.metric("Sessions", len(df_sessions))
+    col_sessions.metric("Sessions à venir", len(df_sessions))
     col_disponibles.metric("Disponibles", disponibles)
     col_alertes.metric("Alertes", len(df_alertes))
     verifier = col_action.button(
@@ -166,7 +169,7 @@ if verifier:
             st.error(f"Erreur pendant la surveillance : {erreur}")
 
     try:
-        df_sessions, df_alertes = charger_donnees()
+        df_sessions, df_alertes = charger_donnees(date.today().isoformat())
     except (psycopg.Error, sqlite3.Error) as erreur:
         st.error(f"Impossible de recharger la base de données : {erreur}")
 
