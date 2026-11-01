@@ -231,7 +231,11 @@ def surveiller_api(conn: DatabaseConnection) -> list[dict[str, str]]:
 
             for item in timespans:
                 attrs = item["attributes"]
-                quantityleft = attrs.get("quantityleft")
+                quantityleft = (
+                    attrs.get("quantity_left")
+                    if "quantity_left" in attrs
+                    else attrs.get("quantityleft")
+                )
                 disponibilite = (
                     "disponible"
                     if quantityleft is not None and quantityleft > 0
