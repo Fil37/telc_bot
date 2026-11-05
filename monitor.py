@@ -1,4 +1,5 @@
 import html
+import logging
 import os
 import re
 import subprocess
@@ -16,6 +17,7 @@ from playwright.async_api import async_playwright
 from database import DatabaseConnection, connect_db, init_db
 
 BASE_URL = "https://kbw-personal-services.butlerapp2.de"
+LOGGER = logging.getLogger(__name__)
 
 CATEGORIES_API = {
     "douala_b2": "douala_deutsch_b2",
@@ -206,6 +208,28 @@ def enregistrer_et_detecter(
     return alerte
 
 
+def _signaler_format_api_invalide(
+    categorie: str,
+    page: int,
+    index: int | None,
+    raison: str,
+    valeur: Any,
+) -> None:
+    extrait = repr(valeur)[:300]
+    LOGGER.error(
+        "Réponse API invalide : catégorie=%s page=%s élément=%s raison=%s extrait=%s",
+        categorie,
+        page,
+        index,
+        raison,
+        extrait,
+    )
+    raise ValueError(
+        f"Réponse API invalide pour {categorie}, page {page}, "
+        f"élément {index} : {raison}"
+    )
+
+
 def surveiller_api(conn: DatabaseConnection) -> list[dict[str, str]]:
     alertes = []
 
@@ -229,8 +253,57 @@ def surveiller_api(conn: DatabaseConnection) -> list[dict[str, str]]:
                 data["body"]["entities"]["body"].get("course_timespans", [])
             )
 
-            for item in timespans:
-                attrs = item["attributes"]
+            if not isinstance(timespans, list):
+                _signaler_format_api_invalide(
+                    categorie,
+                    page,
+                    None,
+                    "course_timespans n'est pas une liste",
+                    timespans,
+                )
+
+            for index, item in enumerate(timespans):
+                if not isinstance(item, dict):
+                    _signaler_format_api_invalide(
+                        categorie,
+                        page,
+                        index,
+                        "l'élément n'est pas un objet",
+                        item,
+                    )
+
+                attrs = item.get("attributes")
+                if not isinstance(attrs, dict):
+                    _signaler_format_api_invalide(
+                        categorie,
+                        page,
+                        index,
+                        "attributes n'est pas un objet",
+                        attrs,
+                    )
+
+                date_examen = attrs.get("from")
+                if not isinstance(date_examen, dict) or not isinstance(
+                    date_examen.get("date"), str
+                ):
+                    _signaler_format_api_invalide(
+                        categorie,
+                        page,
+                        index,
+                        "la date de début est absente ou invalide",
+                        date_examen,
+                    )
+
+                identifiant = attrs.get("id")
+                if not isinstance(identifiant, (str, int)):
+                    _signaler_format_api_invalide(
+                        categorie,
+                        page,
+                        index,
+                        "l'identifiant est absent ou invalide",
+                        identifiant,
+                    )
+
                 quantityleft = (
                     attrs.get("quantity_left")
                     if "quantity_left" in attrs
@@ -246,9 +319,9 @@ def surveiller_api(conn: DatabaseConnection) -> list[dict[str, str]]:
                     conn=conn,
                     source="api",
                     categorie=categorie,
-                    session_id=normaliser_id(attrs["id"]),
-                    date_examen=normaliser_date(attrs["from"]["date"]),
-                    heure=attrs["from"]["date"][11:16],
+                    session_id=normaliser_id(identifiant),
+                    date_examen=normaliser_date(date_examen["date"]),
+                    heure=date_examen["date"][11:16],
                     disponibilite=disponibilite,
                     quantityleft=quantityleft,
                 )

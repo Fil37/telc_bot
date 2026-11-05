@@ -10,6 +10,8 @@ Streamlit, un historique en base de données et des alertes Telegram.
   lire les disponibilités dans la page.
 - Les sessions et leurs changements de disponibilité sont enregistrés dans
   SQLite en local ou dans PostgreSQL/Supabase si `SUPABASE_DB_URL` est défini.
+- Si l’API renvoie une session au format inattendu, le monitor enregistre dans
+  les logs la catégorie, la page et un extrait limité, puis échoue explicitement.
 - Telegram envoie une alerte lorsqu’une session passe à « disponible ».
 - Le tableau de bord affiche uniquement les sessions d’aujourd’hui et à venir,
   ainsi que l’historique des changements. Les sessions passées restent en base,
